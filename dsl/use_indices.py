@@ -473,10 +473,24 @@ class ApplyDivN(Applier):
             new_expr = list()
             dxt = sympify(1)
             if len(expr.args)==2:
+                coefs = self.fd_matrix.col(1)
+                print(">>>", expr.args[1],type(expr.args[1]))
                 if expr.args[1] == l0:
-                    print("deriv x")
-                    for term in self.fd_matrix.col(1):
-                        print("Term: ",term)
+                    for i in range(len(coefs)):
+                        term = coefs[i]
+                        new_expr += [(term, mkterm(expr.args[0], i-len(coefs)//2, 0, 0))]
+                    dxt = DXI
+                    print(">>> here")
+                elif expr.args[1] == l1:
+                    for i in range(len(coefs)):
+                        term = coefs[i]
+                        new_expr += [(term, mkterm(expr.args[0], 0, i-len(coefs)//2, 0))]
+                    dxt = DYI
+                elif expr.args[1] == l2:
+                    for i in range(len(coefs)):
+                        term = coefs[i]
+                        new_expr += [(term, mkterm(expr.args[0], 0, 0, i-len(coefs)//2))]
+                    dxt = DZI
             elif len(expr.args)==3:
                 if expr.args[1:] == (l0, l0):
                     coefs = 2*self.fd_matrix.col(2)
@@ -522,6 +536,8 @@ class ApplyDivN(Applier):
                     dxt = DYI*DZI
                 else:
                     raise Exception()
+
+            if len(new_expr)>0:
                 new_expr = sorted(new_expr, key=sort_exprs)
                 self.val = sympify(0)
                 i = 0
@@ -540,7 +556,7 @@ class ApplyDivN(Applier):
             else:
                 print("args:",expr.args)
             if self.val is None:
-                raise Exception()
+                raise Exception(str(expr))
             return True
         else:
             self.val = None
