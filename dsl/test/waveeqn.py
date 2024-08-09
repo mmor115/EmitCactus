@@ -1,10 +1,11 @@
+#!/usr/bin/env python3
 """
 The waveequation! It can't be solved too many times.
 """
 
 from dsl.use_indices import *
 from typing import cast, Any
-from sympy import Expr, Idx, cos, sin
+from sympy import Expr, Idx, cos, sin, sympify
 from emit.code.code_tree import Centering
 from nrpy.helpers.conditional_file_updater import ConditionalFileUpdater
 import nrpy.helpers.conditional_file_updater as cfu
@@ -12,6 +13,14 @@ from math import pi
 import os
 
 from generators.wizards import CppCarpetXWizard
+
+class Message:
+    def __init__(self):
+        print("BEGIN MESSAGE")
+    def __del__(self):
+        print("END MESSAGE")
+
+msg = Message()
 
 # If we change our configuration, this will show us diffs of the
 # new output and the old.
@@ -52,10 +61,10 @@ kx = gf.add_param("kx", default=pi / 20, desc="The wave number in the x-directio
 ky = gf.add_param("ky", default=pi / 20, desc="The wave number in the y-direction")
 
 # Fill in values
-gf.fill_in(g[li, lj], flat_metric)
-gf.fill_in(g[ui, uj], flat_metric)
+gf.mk_subst(g[li, lj], flat_metric)
+gf.mk_subst(g[ui, uj], flat_metric)
 
-x, y, z = gf.coords()
+x, y, z = gf.mk_coords()
 
 # Add the equations we want to evolve.
 fun = gf.create_function("newwave_evo", ScheduleBin.Evolve)

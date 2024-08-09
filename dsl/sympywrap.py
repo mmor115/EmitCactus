@@ -1,6 +1,6 @@
 from typing import Tuple, List, Dict, Any, Union, cast, Mapping, Callable, Set
 from sympy import cse as cse_, IndexedBase, Idx, Symbol, Expr, Eq, Basic, sympify as sympify_, Expr, Mul, Indexed, \
-    Function
+    Function, Matrix, zeros, Wild
 import re
 from abc import ABC, abstractmethod
 from sympy.core.function import UndefinedFunction as UFunc
@@ -34,6 +34,18 @@ def mkIdx(name: str) -> Idx:
 def mkSymbol(name: str) -> Symbol:
     return Symbol(name)  # type: ignore[no-untyped-call]
 
+def mkWild(name: str, exclude:List[Any]=list(), properties:List[Any]=list()) -> Wild:
+    return Wild(name, exclude=exclude, properties=properties)  # type: ignore[no-untyped-call]
+
+symar = Union[Symbol,List['symar']]
+def mkMatrix(array: symar) -> Matrix:
+    return Matrix(array)  # type: ignore[no-untyped-call]
+
+
+def mkZeros(*tup: int) -> Matrix:
+    res = zeros(*tup) # type: ignore[no-untyped-call]
+    assert isinstance(res, Matrix)
+    return res
 
 def mkFunction(name: str) -> UFunc:
     return Function(name)  # type: ignore[no-any-return]
@@ -91,9 +103,21 @@ call_replace = Union[
     Callable[[Math], Expr]]
 
 
-def do_replace(sym: Expr, func_m: call_match, func_r: call_replace) -> None:
-    sym.replace(func_m, func_r)  # type: ignore[no-untyped-call]
+def do_replace(sym: Expr, func_m: call_match, func_r: call_replace) -> Expr:
+    ret = sym.replace(func_m, func_r)  # type: ignore[no-untyped-call]
+    assert isinstance(ret, Expr)
+    return ret
 
+def do_diff(expr:Expr, sym:Symbol)->Expr:
+    return diff(expr, sym) # type: ignore[no-untyped-call]
+
+def do_match(expr:Expr, pat:Wild)->Optional[Dict[Wild, Expr]]:
+    ret = cast(Optional[Dict[Wild, Expr]], expr.match(pat)) # type: ignore[no-untyped-call]
+    #if ret is not None:
+    #    for k in ret:
+    #        print(f"{k} {type(k)} : {ret[k]} {type(ret[k])}")
+    #    raise Exception("DIE: "+str(ret)+" "+str(type(ret)))
+    return ret
 
 def finder(expr: Expr) -> Set[Math]:
     result: Dict[str, Math] = dict()
