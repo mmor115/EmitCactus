@@ -1,7 +1,7 @@
 """
 Use the Sympy Indexed type for relativity expressions.
 """
-from typing import Union, Set, Dict, List, Any, cast, Callable, Tuple, Optional, Type, TypeVar
+from typing import Union, Set, Dict, List, Any, cast, Callable, Tuple, Optional, Type, TypeVar, Literal
 from sympy import IndexedBase, Idx, Eq, Indexed, Basic, Mul, Expr, Eq, Symbol, Integer, Rational, Matrix, Wild, Number, Pow
 from sympy.core.function import UndefinedFunction as UFunc
 from inspect import currentframe
@@ -15,8 +15,8 @@ import sys
 import numpy as np
 
 if True:
-    def colorize(a,b):
-        return str(a)
+    def colorize(arg: Any, c: Literal['red', 'green', 'yellow', 'blue', 'magenta', 'cyan'])->str:
+        return str(arg)
 
 from emit.code.code_tree import Centering
 from util import ReprEnum, OrderedSet, ScheduleBinEnum
@@ -976,10 +976,13 @@ class ThornDef:
         return ret
 
     def find_indexes(self, foo:Basic)->List[Idx]:
+        ret : List[Idx] = list()
         if type(foo) == div:
-            return self.find_indexes(foo.args[0]) + foo.args[1:]
-        else:
-            return foo.args[1:]
+            ret = self.find_indexes(foo.args[0])
+        for arg in foo.args[1:]:
+            assert isinstance(arg, Idx)
+            ret.append(arg)
+        return ret
 
     def find_symmetries(self, foo:Basic)->List[Tuple[int,int,int]]:
         msym_list : List[Tuple[int,int,int]] = list()
@@ -1032,16 +1035,17 @@ class ThornDef:
         return OrderedSet(self.params)
 
     def mk_subst(self, indexed: Indexed, f: Union[mk_subst_type,Matrix,Expr] = mk_subst_default) -> None:
+        indexes : List[Idx]
         if type(indexed) == Indexed:
             iter_var = indexed
             iter_syms = self.find_symmetries(indexed)
-            indexes : List[Idx] = self.find_indexes(indexed)
+            indexes = self.find_indexes(indexed)
         else:
             # Here we declare an iteration variable
             # with the same symmetries as the expression
             # we want to iterate over.
             iter_syms = self.find_symmetries(indexed)
-            indexes : List[Idx] = self.find_indexes(indexed)
+            indexes = self.find_indexes(indexed)
             assert isinstance(indexed.args[0], Indexed), f"{indexed} {indexed.args}"
             #for arg in indexed.args[1:]:
             #    assert isinstance(arg, Idx), f"{indexed} {indexed.args}"
@@ -1077,7 +1081,7 @@ class ThornDef:
         
         for tup in expand_free_indices(iter_var, self.symmetries):
             out, indrep = tup
-            #assert isinstance(out, Indexed)
+            assert isinstance(out, Indexed)
             inds = out.indices
             subj: Expr
             subj = out
