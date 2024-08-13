@@ -14,12 +14,16 @@ import re
 import sys
 import numpy as np
 
+if True:
+    def colorize(a,b):
+        return str(a)
+
 from emit.code.code_tree import Centering
 from util import ReprEnum, OrderedSet, ScheduleBinEnum
 from nrpy.finite_difference import setup_FD_matrix__return_inverse_lowlevel
 
 __all__ = ["div", "to_num", "mk_subst_type", "Param", "ThornFunction", "ScheduleBin", "ThornDef",
-    "set_dimension", "get_dimension",
+    "set_dimension", "get_dimension", "lookup_pair",
     "ui", "uj", "uk", "ua", "ub", "uc", "ud", "u0", "u1", "u2", "u3", "u4", "u5",
     "li", "lj", "lk", "la", "lb", "lc", "ld", "l0", "l1", "l2", "l3", "l4", "l5"]
 
@@ -104,18 +108,20 @@ class DivMaker(Applier):
     def repl(self, expr:Expr)->Optional[Expr]:
         # Div of constants
         if do_match(expr, div(pnum, p0)):
-            return sympify(0)
+            return do_sympify(0)
         if do_match(expr, div(pnum, p0, p1)):
-            return sympify(0)
+            return do_sympify(0)
         if do_match(expr, div(self.ppar, p0)):
-            return sympify(0)
+            return do_sympify(0)
         if do_match(expr, div(self.ppar, p0, p1)):
-            return sympify(0)
+            return do_sympify(0)
 
         # Symmetry of Div operation
         g = do_match(expr, div(p0, is_ln, is_ln2))
         if g:
             q0, q1, q2 = g[p0], g[is_ln], g[is_ln2]
+            assert isinstance(q1, Idx)
+            assert isinstance(q2, Idx)
             if to_num(q1) > to_num(q2):
                 return cast(Expr, div(q0,q2,q1))
 
@@ -156,6 +162,7 @@ class DivMaker(Applier):
         if g:
             q0 = g[self.isxyz]
             q1 = g[is_ln]
+            assert isinstance(q1, Idx)
             return do_diff(q0, self.coords[to_num(q1)])
 
         return None
@@ -367,14 +374,14 @@ assert valscount == dimension ** 2
 
 def expand_contracted_indices(xpr: Expr, sym: Sym) -> Expr:
     if type(xpr) == addtype:
-        ret: Expr = sympify(0)
+        ret: Expr = do_sympify(0)
         for arg in xpr.args:
             ret += expand_contracted_indices(arg, sym)
         return ret
     index_list = sorted(list(get_contracted_indices(xpr)), key=byname)
     if len(index_list) == 0:
         return xpr
-    output = sympify(0)
+    output = do_sympify(0)
     index_values: Dict[Idx, Idx] = dict()
     while incr(index_list, index_values):
         output += do_subs(xpr, index_values, sym)
@@ -597,16 +604,14 @@ class ApplyDivN(Applier):
     def m(self, expr:Expr)->bool:
         if expr.is_Function and hasattr(expr, "name") and expr.name == "div":
             new_expr = list()
-            dxt = sympify(1)
+            dxt = do_sympify(1)
             if len(expr.args)==2:
                 coefs = self.fd_matrix.col(1)
-                print(">>>", expr.args[1],type(expr.args[1]))
                 if expr.args[1] == l0:
                     for i in range(len(coefs)):
                         term = coefs[i]
                         new_expr += [(term, mkterm(expr.args[0], i-len(coefs)//2, 0, 0))]
                     dxt = DXI
-                    print(">>> here")
                 elif expr.args[1] == l1:
                     for i in range(len(coefs)):
                         term = coefs[i]
@@ -665,7 +670,7 @@ class ApplyDivN(Applier):
 
             if len(new_expr)>0:
                 new_expr = sorted(new_expr, key=sort_exprs)
-                self.val = sympify(0)
+                self.val = do_sympify(0)
                 i = 0
                 while i < len(new_expr):
                     if i + 1 < len(new_expr) and abs(new_expr[i][0]) == abs(new_expr[i+1][0]):
@@ -970,14 +975,21 @@ class ThornDef:
 
         return ret
 
+    def find_indexes(self, foo:Basic)->List[Idx]:
+        if type(foo) == div:
+            return self.find_indexes(foo.args[0]) + foo.args[1:]
+        else:
+            return foo.args[1:]
+
     def find_symmetries(self, foo:Basic)->List[Tuple[int,int,int]]:
         msym_list : List[Tuple[int,int,int]] = list()
         if foo.is_Function and hasattr(foo, "name") and foo.name == "div":
             # This is a derivative
-            if len(foo.args) == dimension:
+            if len(foo.args) == 3:
+                assert False, f"{foo}"
                 # This is a 2nd derivative, symmetric in the last 2 args
                 foo_arg1 = chkcast(foo.args[1], int)
-                foo_arg2 = chkcast(foo.args[1], int)
+                foo_arg2 = chkcast(foo.args[2], int)
                 msym : Tuple[int,int,int] = (foo_arg1, foo_arg2, 1)
                 msym_list += [msym]
                 msym_list += self.find_symmetries(foo.args[0])
@@ -1000,6 +1012,19 @@ class ThornDef:
             result[arr_inds] = self.do_subs(ind, values)
         return result
 
+    def get_indices(self, expr:Expr)->List[Idx]:
+        out: List[Idx] = list()
+        if type(expr) == div:
+            for arg in expr.args[0].args[1:]:
+                assert isinstance(arg, Idx)
+                out.append(arg)
+        assert isinstance(expr, Indexed)
+        for arg in expr.args[1:]:
+            assert isinstance(arg, Idx)
+            out.append(arg)
+        return out
+
+
     def get_coords(self)->List[Symbol]:
         return self.coords
 
@@ -1009,20 +1034,33 @@ class ThornDef:
     def mk_subst(self, indexed: Indexed, f: Union[mk_subst_type,Matrix,Expr] = mk_subst_default) -> None:
         if type(indexed) == Indexed:
             iter_var = indexed
+            iter_syms = self.find_symmetries(indexed)
+            indexes : List[Idx] = self.find_indexes(indexed)
         else:
             # Here we declare an iteration variable
             # with the same symmetries as the expression
             # we want to iterate over.
             iter_syms = self.find_symmetries(indexed)
-            iter_var = self.decl("iter_var", indexed.args[1:])
-            self.symmetries.sd["iter_var"] = iter_syms
+            indexes : List[Idx] = self.find_indexes(indexed)
+            assert isinstance(indexed.args[0], Indexed), f"{indexed} {indexed.args}"
+            #for arg in indexed.args[1:]:
+            #    assert isinstance(arg, Idx), f"{indexed} {indexed.args}"
+            #    indexes.append(arg)
+            iter_var_base:IndexedBase = self.decl("iter_var", indexes)
+            iter_var = iter_var_base[indexes]
+            self.symmetries.sd[iter_var_base] = iter_syms
+        print("<<","indexed:",indexed)
+        print("  ","iter_var:",iter_var)
+        print("  ","iter_syms:",iter_syms)
+        print("  ","indexes:",indexes)
 
         if isinstance(f, Matrix):
             set_matrix = f
             for tup in expand_free_indices(iter_var, self.symmetries):
                 out, indrep = tup
+                assert isinstance(out, Indexed)
                 arr_inds = tuple([to_num(x) for x in out.indices])
-                self.subs[out] = sympify(set_matrix[arr_inds])
+                self.subs[out] = do_simplify(set_matrix[arr_inds])
                 print(colorize(out,"red"),colorize("->","magenta"),colorize(self.subs[out],"cyan"))
             return None
         elif isinstance(f, Expr):
@@ -1031,13 +1069,15 @@ class ThornDef:
                 raise Exception(f"Free indices of '{indexed}' and '{f}' do not match.")
             for tup in expand_free_indices(iter_var, self.symmetries):
                 out, indrep = tup
+                assert isinstance(out, Indexed)
                 arr_inds = tuple([to_num(x) for x in out.indices])
-                self.subs[out] = sympify(self.do_subs(f, indrep))
+                self.subs[out] = do_simplify(self.do_subs(f, indrep))
                 print(colorize(out,"red"),colorize("->","magenta"),colorize(self.subs[out],"cyan"))
             return None
         
         for tup in expand_free_indices(iter_var, self.symmetries):
             out, indrep = tup
+            #assert isinstance(out, Indexed)
             inds = out.indices
             subj: Expr
             subj = out
@@ -1120,5 +1160,5 @@ if __name__ == "__main__":
     a = gf.decl("a", [], temp=True)
     b = gf.decl("b", [])
     foo = gf.create_function("foo", ScheduleBin.Analysis)
-    foo.add_eqn(a,sympify(dimension))
-    foo.add_eqn(b,a+sympify(2))
+    foo.add_eqn(a,do_sympify(dimension))
+    foo.add_eqn(b,a+do_sympify(2))

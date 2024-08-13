@@ -4,8 +4,9 @@ The waveequation! It can't be solved too many times.
 """
 
 from dsl.use_indices import *
+from dsl.sympywrap import *
 from typing import cast, Any
-from sympy import Expr, Idx, cos, sin, sympify
+from sympy import Expr, Idx, cos, sin
 from emit.code.code_tree import Centering
 from nrpy.helpers.conditional_file_updater import ConditionalFileUpdater
 import nrpy.helpers.conditional_file_updater as cfu
@@ -15,9 +16,9 @@ import os
 from generators.wizards import CppCarpetXWizard
 
 class Message:
-    def __init__(self):
+    def __init__(self)->None:
         print("BEGIN MESSAGE")
-    def __del__(self):
+    def __del__(self)->None:
         print("END MESSAGE")
 
 msg = Message()
@@ -31,11 +32,11 @@ def flat_metric(out: Expr, ni: Idx, nj: Idx) -> Expr:
     i = to_num(ni)
     j = to_num(nj)
     if i == 2 or j == 2:
-        return sympify(0)
+        return do_sympify(0)
     elif i == j:
-        return sympify(1)
+        return do_sympify(1)
     else:
-        return sympify(0)
+        return do_sympify(0)
 
 
 # Create a set of grid functions
@@ -82,7 +83,7 @@ fun.show_tensortypes()
 # Again for wave_init
 fun = gf.create_function("newwave_init", ScheduleBin.Init)
 fun.add_eqn(v, sin(kx * x) * sin(ky * y))
-fun.add_eqn(u, sympify(0))  # kx**2 * ky**2 * sin(kx * x) * sin(ky * y))
+fun.add_eqn(u, do_sympify(0))  # kx**2 * ky**2 * sin(kx * x) * sin(ky * y))
 print('*** ThornFunction wave_init:')
 fun.bake()
 fun.dump()

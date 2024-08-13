@@ -53,7 +53,7 @@ class Sym(Applier):
                 retsgn *= sgn
             elif s1 == s2 and sgn < 0:
                 self.modified = True
-                return sympify(0)
+                return do_sympify(0)
         if retsgn == 1:
             ret = expr.base.__getitem__(tuple(args))
         else:
@@ -65,7 +65,7 @@ class Sym(Applier):
         self.modified = True
         while self.modified:
             self.modified = False
-            expr = expr.replace(self.match, self.replace)  # type: ignore[no-untyped-call]
+            expr = do_replace(expr, self.match, self.replace)
         return expr
 
 

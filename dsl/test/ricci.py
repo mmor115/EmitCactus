@@ -1,5 +1,5 @@
 from dsl.use_indices import *
-from dsl.sympywrap import mkMatrix
+from dsl.sympywrap import mkMatrix, do_inv, do_sympify
 from emit.ccl.interface.interface_visitor import InterfaceVisitor
 from emit.ccl.param.param_visitor import ParamVisitor
 from emit.ccl.schedule.schedule_visitor import ScheduleVisitor
@@ -26,14 +26,14 @@ diagonal = True
 if diagonal:
     gDD00 = gf.decl("gDD00", [], Centering.VVC)
     gf.mk_subst(g[la,lb],mkMatrix(
-    [[1+y**2+z**2,0, 0],
+    [[1+y**2+z**2, 0, 0],
      [0    ,1+x**2+z**2, 0],
      [0    ,0, 1+x**2+y**2]]))
 else:
     gf.mk_subst(g[la, lb])
 
 gmat = gf.get_matrix(g[la,lb])
-imat = gmat.inv()
+imat = do_inv(gmat)
 opt1 = False
 if opt1:
     gf.mk_subst(g[ua,ub]) # g[u0,u0] -> gUU00
