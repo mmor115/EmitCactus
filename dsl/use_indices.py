@@ -14,10 +14,6 @@ import re
 import sys
 import numpy as np
 
-if True:
-    def colorize(arg: Any, c: Literal['red', 'green', 'yellow', 'blue', 'magenta', 'cyan'])->str:
-        return str(arg)
-
 from emit.code.code_tree import Centering
 from util import ReprEnum, OrderedSet, ScheduleBinEnum
 from nrpy.finite_difference import setup_FD_matrix__return_inverse_lowlevel
