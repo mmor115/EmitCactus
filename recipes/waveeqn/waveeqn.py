@@ -9,6 +9,12 @@ from sympy import Expr, Idx, Matrix
 import nrpy.helpers.conditional_file_updater as cfu
 from math import pi
 
+gen_opts = {
+    "do_cse": True,
+    "do_madd": True,
+    "do_recycle_temporaries": False,
+    "do_split_output_eqns": True
+}
 
 # If we change our configuration, this will show us diffs of the
 # new output and the old.
@@ -69,7 +75,7 @@ fun = gf.create_function("newwave_evo", ScheduleBin.Evolve)
 fun.add_eqn(v_t, u)
 fun.add_eqn(u_t, spd ** 2 * g[ui, uj] * D(v, li, lj))
 print('*** ThornFunction wave_evo:')
-fun.bake()
+fun.bake(**gen_opts)
 
 # Dump
 fun.dump()
@@ -85,7 +91,7 @@ ufun = vfun.diff(t) #max(vfun.diff(t), -2*amp*w)
 fun = gf.create_function("newwave_init", ScheduleBin.Init)
 fun.add_eqn(u,  ufun)
 fun.add_eqn(v,  vfun)
-fun.bake()
+fun.bake(**gen_opts)
 #fun.dump()
 #fun.show_tensortypes()
 
@@ -93,11 +99,11 @@ fun = gf.create_function("refine", ScheduleBin.EstimateError)
 regrid_error = gf.decl("regrid_error", [], centering=Centering.CCC, from_thorn='CarpetXRegrid')
 #fun.add_eqn(regrid_error, 2*v*v)
 fun.add_eqn(regrid_error, 9/((x-20)**2 + (y-20)**2))
-fun.bake()
+fun.bake(**gen_opts)
 
 fun = gf.create_function("WaveZero", ScheduleBin.Analysis)
 fun.add_eqn(ZeroVal, u - ufun)
-fun.bake()
+fun.bake(**gen_opts)
 
 fun.dump()
 
