@@ -292,11 +292,64 @@ detgt = det(gt_mat)
 gt_imat = inv(gt_mat) * detgt  # Use the fact that det(gt) = 1
 cottonmouth_bssnok.add_substitution_rule(gt[ua, ub], gt_imat)
 
-cottonmouth_bssnok.add_substitution_rule(At[ua, ub])
-cottonmouth_bssnok.add_substitution_rule(At[ua, lb])
+cottonmouth_bssnok.add_substitution_rule(
+    At[ua, lb],
+    gt[ua, uc] * At[lc, lb]
+)
 
-cottonmouth_bssnok.add_substitution_rule(Gammat[ua, lb, lc])
-cottonmouth_bssnok.add_substitution_rule(Gammat[la, lb, uc])
+cottonmouth_bssnok.add_substitution_rule(
+    At[ua, ub],
+    gt[ub, uc] * At[ua, lc]
+)
+
+cottonmouth_bssnok.add_substitution_rule(
+    Gammat[lc, la, lb],
+    Rational(1, 2) * (
+        D(gt[lc, la], lb) + D(gt[lc, lb], la) - D(gt[la, lb], lc)
+    )
+)
+
+cottonmouth_bssnok.add_substitution_rule(
+    Gammat[ua, lb, lc],
+    gt[ua, ud] * Gammat[ld, lb, lc]
+)
+
+cottonmouth_bssnok.add_substitution_rule(
+    Gammat[la, lb, uc],
+    gt[uc, ud] * Gammat[la, lb, ld]
+)
+
+cottonmouth_bssnok.add_substitution_rule(
+    Delta[ua],
+    gt[ub, uc] * gt[ua, ud] * Gammat[ld, lb, lc]
+)
+
+cottonmouth_bssnok.add_substitution_rule(
+    cdphi[la],
+    -Rational(1, 2) * (1 / w) * D(w, la)
+)
+
+cottonmouth_bssnok.add_substitution_rule(
+    cdphi2[la, lb],
+    -Rational(1, 2) * (1 / w) * (
+        D(w, la, lb)
+        - Gammat[uc, la, lb] * D(w, lc)
+    )
+    + Rational(1, 2) * (1 / (w**2)) * D(w, la) * D(w, lb)
+)
+
+cottonmouth_bssnok.add_substitution_rule(
+    Ats[la, lb],
+    (
+        -D(evo_lapse, la, lb)
+        + Gammat[uc, la, lb] * D(evo_lapse, lc)
+    )
+    + 2 * (
+        D(evo_lapse, la) * cdphi[lb]
+        + D(evo_lapse, lb) * cdphi[la]
+    )
+    + evo_lapse * R[la, lb]
+)
 
 ###
 # Aux. groups
@@ -376,7 +429,7 @@ fun_bssn_enforce_pt1.add_eqn(
     max(w, conformal_factor_floor)
 )
 
-# Enforce conformal factor floor
+# Enforce lapse floor
 fun_bssn_enforce_pt1.add_eqn(
     evo_lapse_enforce,
     max(evo_lapse, evolved_lapse_floor)
@@ -476,37 +529,9 @@ fun_bssn_ricci = cottonmouth_bssnok.create_function(
     ricci_group_analysis
 )
 
-# Aux. equations
 fun_bssn_ricci.add_eqn(
-    Gammat[lc, la, lb],
-    Rational(1, 2) * (
-        D(gt[lc, la], lb) + D(gt[lc, lb], la) - D(gt[la, lb], lc)
-    )
-)
-
-fun_bssn_ricci.add_eqn(Gammat[ua, lb, lc], gt[ua, ud] * Gammat[ld, lb, lc])
-fun_bssn_ricci.add_eqn(Gammat[la, lb, uc], gt[uc, ud] * Gammat[la, lb, ld])
-fun_bssn_ricci.add_eqn(
-    Delta[ua],
-    gt[ub, uc] * gt[ua, ud] * Gammat[ld, lb, lc]
-)
-
-fun_bssn_ricci.add_eqn(
-    cdphi[la],
-    -Rational(1, 2) * (1 / w) * D(w, la)
-)
-
-fun_bssn_ricci.add_eqn(
-    cdphi2[la, lb],
-    -Rational(1, 2) * (1 / w) * (
-        D(w, la, lb)
-        - Gammat[uc, la, lb] * D(w, lc)
-    )
-    + Rational(1, 2) * (1 / (w**2)) * D(w, la) * D(w, lb)
-)
-
-fun_bssn_ricci.add_eqn(
-    Rt[la, lb],
+    R[la, lb],
+    # \tilde{R}
     - Rational(1, 2) * gt[uc, ud] * D(gt[la, lb], lc, ld)
     + Rational(1, 2) * gt[lc, la] * D(ConfConnect[uc], lb)
     + Rational(1, 2) * gt[lc, lb] * D(ConfConnect[uc], la)
@@ -517,17 +542,12 @@ fun_bssn_ricci.add_eqn(
         + Gammat[uc, lb, ld] * Gammat[la, lc, ud]
         + Gammat[uc, la, ld] * Gammat[lc, lb, ud]
     )
-)
-
-fun_bssn_ricci.add_eqn(
-    RPhi[la, lb],
+    # R_phi
     - 2 * cdphi2[lb, la]
     - 2 * gt[la, lb] * gt[uc, ud] * cdphi2[lc, ld]
     + 4 * cdphi[la] * cdphi[lb]
     - 4 * gt[la, lb] * gt[uc, ud] * cdphi[lc] * cdphi[ld]
 )
-
-fun_bssn_ricci.add_eqn(R[la, lb], Rt[la, lb] + RPhi[la, lb])
 
 fun_bssn_ricci.bake(**gen_opts)
 
@@ -537,28 +557,6 @@ fun_bssn_ricci.bake(**gen_opts)
 fun_bssn_cons = cottonmouth_bssnok.create_function(
     "cottonmouth_bssnok_constraints",
     analysis_group
-)
-
-# Aux. equations
-fun_bssn_cons.add_eqn(
-    Gammat[lc, la, lb],
-    Rational(1, 2) * (
-        D(gt[lc, la], lb) + D(gt[lc, lb], la) - D(gt[la, lb], lc)
-    )
-)
-
-fun_bssn_cons.add_eqn(Gammat[ua, lb, lc], gt[ua, ud] * Gammat[ld, lb, lc])
-fun_bssn_cons.add_eqn(
-    Delta[ua],
-    gt[ub, uc] * gt[ua, ud] * Gammat[ld, lb, lc]
-)
-
-fun_bssn_cons.add_eqn(At[ua, lb], gt[ua, uc] * At[lc, lb])
-fun_bssn_cons.add_eqn(At[ua, ub], gt[ub, uc] * At[ua, lc])
-
-fun_bssn_cons.add_eqn(
-    cdphi[la],
-    -Rational(1, 2) * (1 / w) * D(w, la)
 )
 
 # Hamiltonian constraint
@@ -604,58 +602,7 @@ fun_bssn_rhs = cottonmouth_bssnok.create_function(
     rhs_group
 )
 
-# Aux. equations
-fun_bssn_rhs.add_eqn(
-    Gammat[lc, la, lb],
-    Rational(1, 2) * (
-        D(gt[lc, la], lb) + D(gt[lc, lb], la) - D(gt[la, lb], lc)
-    )
-)
-
-fun_bssn_rhs.add_eqn(Gammat[ua, lb, lc], gt[ua, ud] * Gammat[ld, lb, lc])
-fun_bssn_rhs.add_eqn(
-    Delta[ua],
-    gt[ub, uc] * gt[ua, ud] * Gammat[ld, lb, lc]
-)
-
-fun_bssn_rhs.add_eqn(At[ua, lb], gt[ua, uc] * At[lc, lb])
-fun_bssn_rhs.add_eqn(At[ua, ub], gt[ub, uc] * At[ua, lc])
-
-fun_bssn_rhs.add_eqn(
-    cdphi[la],
-    -Rational(1, 2) * (1 / w) * D(w, la)
-)
-
-fun_bssn_rhs.add_eqn(
-    Ats[la, lb],
-    (
-        -D(evo_lapse, la, lb)
-        + Gammat[uc, la, lb] * D(evo_lapse, lc)
-    )
-    + 2 * (
-        D(evo_lapse, la) * cdphi[lb]
-        + D(evo_lapse, lb) * cdphi[la]
-    )
-    + evo_lapse * R[la, lb]
-)
-
 # Evolution equations
-fun_bssn_rhs.add_eqn(
-    gt_rhs[la, lb],
-    - 2 * evo_lapse * At[la, lb]
-    + gt[la, lc] * D(evo_shift[uc], lb)
-    + gt[lb, lc] * D(evo_shift[uc], la)
-    - Rational(2, 3) * gt[la, lb] * D(evo_shift[uc], lc)
-    # TODO: Advection: + Upwind[beta[uc], gt[la,lb], lc]
-    + evo_shift[uc] * D(gt[la, lb], lc)
-    # Dissipation:
-    + dissipation_epsilon * (
-        div_diss(gt[la, lb], l0)
-        + div_diss(gt[la, lb], l1)
-        + div_diss(gt[la, lb], l2)
-    )
-)
-
 fun_bssn_rhs.add_eqn(
     w_rhs,
     Rational(1, 3) * w * (
@@ -673,27 +620,58 @@ fun_bssn_rhs.add_eqn(
 )
 
 fun_bssn_rhs.add_eqn(
-    At_rhs[la, lb],
-    (w**2) * (
-        Ats[la, lb]
-        - Rational(1, 3) * gt[la, lb] * gt[uc, ud] * Ats[lc, ld]
-    )
-    + evo_lapse * (
-        + trK * At[la, lb]
-        - 2 * At[la, lc] * At[uc, lb]
-    )
-    + At[la, lc] * D(evo_shift[uc], lb)
-    + At[lb, lc] * D(evo_shift[uc], la)
-    - Rational(2, 3) * At[la, lb] * D(evo_shift[uc], lc)
-    # TODO: Advection: + Upwind[beta[uc], At[la,lb], lc]
-    + evo_shift[uc] * D(At[la, lb], lc)
+    gt_rhs[la, lb],
+    - 2 * evo_lapse * At[la, lb]
+    + gt[la, lc] * D(evo_shift[uc], lb)
+    + gt[lb, lc] * D(evo_shift[uc], la)
+    - Rational(2, 3) * gt[la, lb] * D(evo_shift[uc], lc)
+    # TODO: Advection: + Upwind[beta[uc], gt[la,lb], lc]
+    + evo_shift[uc] * D(gt[la, lb], lc)
     # Dissipation:
     + dissipation_epsilon * (
-        div_diss(At[la, lb], l0)
-        + div_diss(At[la, lb], l1)
-        + div_diss(At[la, lb], l2)
+        div_diss(gt[la, lb], l0)
+        + div_diss(gt[la, lb], l1)
+        + div_diss(gt[la, lb], l2)
     )
 )
+
+fun_bssn_rhs.add_eqn(
+    evo_lapse_rhs,
+    - 2 * evo_lapse * trK
+    # TODO: Advection: Upwind[beta[ua], alpha, la]
+    + evo_shift[ua] * D(evo_lapse, la)
+    # Dissipation
+    + dissipation_epsilon * (
+        div_diss(evo_lapse, l0)
+        + div_diss(evo_lapse, l1)
+        + div_diss(evo_lapse, l2)
+    )
+)
+
+# TODO: Loop split
+
+fun_bssn_rhs.add_eqn(
+    ConfConnect_rhs_tmp[ua],
+    - 2 * At[ua, ub] * D(evo_lapse, lb)
+    + 2 * evo_lapse * (
+        + Gammat[ua, lb, lc] * At[ub, uc]
+        - Rational(2, 3) * gt[ua, ub] * D(trK, lb)
+        + 6 * At[ua, ub] * cdphi[lb]
+    )
+    + gt[ub, uc] * D(evo_shift[ua], lb, lc)
+    + Rational(1, 3) * gt[ua, ub] * D(evo_shift[uc], lb, lc)
+    - Delta[ub] * D(evo_shift[ua], lb)
+    + Rational(2, 3) * Delta[ua] * D(evo_shift[ub], lb)
+    # TODO: Advection: + Upwind[beta[ub], Xt[ua], lb]
+    + evo_shift[ub] * D(ConfConnect[ua], lb)
+    # Dissipation:
+    + dissipation_epsilon * (
+        div_diss(ConfConnect[ua], l0)
+        + div_diss(ConfConnect[ua], l1)
+        + div_diss(ConfConnect[ua], l2)
+    )
+)
+fun_bssn_rhs.add_eqn(ConfConnect_rhs[ua], ConfConnect_rhs_tmp[ua])
 
 fun_bssn_rhs.add_eqn(
     trK_rhs,
@@ -719,44 +697,6 @@ fun_bssn_rhs.add_eqn(
 )
 
 fun_bssn_rhs.add_eqn(
-    ConfConnect_rhs_tmp[ua],
-    - 2 * At[ua, ub] * D(evo_lapse, lb)
-    + 2 * evo_lapse * (
-        + Gammat[ua, lb, lc] * At[ub, uc]
-        - Rational(2, 3) * gt[ua, ub] * D(trK, lb)
-        + 6 * At[ua, ub] * cdphi[lb]
-    )
-    + gt[ub, uc] * D(evo_shift[ua], lb, lc)
-    + Rational(1, 3) * gt[ua, ub] * D(evo_shift[uc], lb, lc)
-    - Delta[ub] * D(evo_shift[ua], lb)
-    + Rational(2, 3) * Delta[ua] * D(evo_shift[ub], lb)
-    # TODO: Advection: + Upwind[beta[ub], Xt[ua], lb]
-    + evo_shift[ub] * D(ConfConnect[ua], lb)
-    # Dissipation:
-    + dissipation_epsilon * (
-        div_diss(ConfConnect[ua], l0)
-        + div_diss(ConfConnect[ua], l1)
-        + div_diss(ConfConnect[ua], l2)
-    )
-)
-fun_bssn_rhs.add_eqn(ConfConnect_rhs[ua], ConfConnect_rhs_tmp[ua])
-
-# 1 + log lapse.
-fun_bssn_rhs.add_eqn(
-    evo_lapse_rhs,
-    - 2 * evo_lapse * trK
-    # TODO: Advection: Upwind[beta[ua], alpha, la]
-    + evo_shift[ua] * D(evo_lapse, la)
-    # Dissipation
-    + dissipation_epsilon * (
-        div_diss(evo_lapse, l0)
-        + div_diss(evo_lapse, l1)
-        + div_diss(evo_lapse, l2)
-    )
-)
-
-# Hyperbolic Gamma Driver shift
-fun_bssn_rhs.add_eqn(
     evo_shift_rhs[ua],
     Rational(3, 4) * evo_lapse * shift_B[ua]
     # TODO: Advection
@@ -781,6 +721,31 @@ fun_bssn_rhs.add_eqn(
         div_diss(shift_B[ua], l0)
         + div_diss(shift_B[ua], l1)
         + div_diss(shift_B[ua], l2)
+    )
+)
+
+# TODO: Loop split
+
+fun_bssn_rhs.add_eqn(
+    At_rhs[la, lb],
+    (w**2) * (
+        Ats[la, lb]
+        - Rational(1, 3) * gt[la, lb] * gt[uc, ud] * Ats[lc, ld]
+    )
+    + evo_lapse * (
+        + trK * At[la, lb]
+        - 2 * At[la, lc] * At[uc, lb]
+    )
+    + At[la, lc] * D(evo_shift[uc], lb)
+    + At[lb, lc] * D(evo_shift[uc], la)
+    - Rational(2, 3) * At[la, lb] * D(evo_shift[uc], lc)
+    # TODO: Advection: + Upwind[beta[uc], At[la,lb], lc]
+    + evo_shift[uc] * D(At[la, lb], lc)
+    # Dissipation:
+    + dissipation_epsilon * (
+        div_diss(At[la, lb], l0)
+        + div_diss(At[la, lb], l1)
+        + div_diss(At[la, lb], l2)
     )
 )
 
