@@ -239,22 +239,14 @@ At_enforce = cottonmouth_bssnok.decl(
 # Ricci tensor.
 # We single out the Ricci tensor and compute it on its own function in order
 # to increase efficiency
-###
-
-# \tilde{R}_{a b}
-Rt = cottonmouth_bssnok.decl("Rt", [la, lb], symmetries=[(la, lb)])
-
-# \tilde{R}^{\phi}_{a b}
-RPhi = cottonmouth_bssnok.decl("RPhi", [la, lb], symmetries=[(la, lb)])
-
 # R_{a b} = \tilde{R}_{a b} + R^\phi_{a b}
+###
 R = cottonmouth_bssnok.decl(
     "R",
     [la, lb],
     symmetries=[(la, lb)],
     parity=parity_sym2ten
 )
-
 
 ###
 # Aux. Vars.
@@ -597,13 +589,13 @@ fun_bssn_cons.bake(**gen_opts)
 # using an "upwind" stencil which is shifted by one point in
 # the direction of the shift, and of the same order
 ###
-fun_bssn_rhs = cottonmouth_bssnok.create_function(
-    "cottonmouth_bssnok_rhs",
+fun_bssn_rhs_1 = cottonmouth_bssnok.create_function(
+    "cottonmouth_bssnok_rhs_1",
     rhs_group
 )
 
 # Evolution equations
-fun_bssn_rhs.add_eqn(
+fun_bssn_rhs_1.add_eqn(
     w_rhs,
     Rational(1, 3) * w * (
         evo_lapse * trK
@@ -619,7 +611,7 @@ fun_bssn_rhs.add_eqn(
     )
 )
 
-fun_bssn_rhs.add_eqn(
+fun_bssn_rhs_1.add_eqn(
     gt_rhs[la, lb],
     - 2 * evo_lapse * At[la, lb]
     + gt[la, lc] * D(evo_shift[uc], lb)
@@ -635,7 +627,7 @@ fun_bssn_rhs.add_eqn(
     )
 )
 
-fun_bssn_rhs.add_eqn(
+fun_bssn_rhs_1.add_eqn(
     evo_lapse_rhs,
     - 2 * evo_lapse * trK
     # TODO: Advection: Upwind[beta[ua], alpha, la]
@@ -648,9 +640,27 @@ fun_bssn_rhs.add_eqn(
     )
 )
 
-# TODO: Loop split
+fun_bssn_rhs_1.add_eqn(
+    evo_shift_rhs[ua],
+    Rational(3, 4) * evo_lapse * shift_B[ua]
+    # TODO: Advection
+    + evo_shift[ub] * D(evo_shift[ua], lb)
+    # Dissipation
+    + dissipation_epsilon * (
+        div_diss(evo_shift[ua], l0)
+        + div_diss(evo_shift[ua], l1)
+        + div_diss(evo_shift[ua], l2)
+    )
+)
 
-fun_bssn_rhs.add_eqn(
+fun_bssn_rhs_1.bake(**gen_opts)
+
+fun_bssn_rhs_2 = cottonmouth_bssnok.create_function(
+    "cottonmouth_bssnok_rhs_2",
+    rhs_group
+)
+
+fun_bssn_rhs_2.add_eqn(
     ConfConnect_rhs_tmp[ua],
     - 2 * At[ua, ub] * D(evo_lapse, lb)
     + 2 * evo_lapse * (
@@ -671,9 +681,31 @@ fun_bssn_rhs.add_eqn(
         + div_diss(ConfConnect[ua], l2)
     )
 )
-fun_bssn_rhs.add_eqn(ConfConnect_rhs[ua], ConfConnect_rhs_tmp[ua])
+fun_bssn_rhs_2.add_eqn(ConfConnect_rhs[ua], ConfConnect_rhs_tmp[ua])
 
-fun_bssn_rhs.add_eqn(
+fun_bssn_rhs_2.add_eqn(
+    shift_B_rhs[ua],
+    ConfConnect_rhs_tmp[ua]
+    - evo_shift[ub] * D(ConfConnect[ua], lb)
+    - eta_B * shift_B[ua]
+    # TODO: Advection
+    + evo_shift[ub] * D(shift_B[ua], lb)
+    # Dissipation
+    + dissipation_epsilon * (
+        div_diss(shift_B[ua], l0)
+        + div_diss(shift_B[ua], l1)
+        + div_diss(shift_B[ua], l2)
+    )
+)
+
+fun_bssn_rhs_2.bake(**gen_opts)
+
+fun_bssn_rhs_3 = cottonmouth_bssnok.create_function(
+    "cottonmouth_bssnok_rhs_3",
+    rhs_group
+)
+
+fun_bssn_rhs_3.add_eqn(
     trK_rhs,
     - (w**2) * (
         gt[ua, ub] * (
@@ -696,37 +728,7 @@ fun_bssn_rhs.add_eqn(
     )
 )
 
-fun_bssn_rhs.add_eqn(
-    evo_shift_rhs[ua],
-    Rational(3, 4) * evo_lapse * shift_B[ua]
-    # TODO: Advection
-    + evo_shift[ub] * D(evo_shift[ua], lb)
-    # Dissipation
-    + dissipation_epsilon * (
-        div_diss(evo_shift[ua], l0)
-        + div_diss(evo_shift[ua], l1)
-        + div_diss(evo_shift[ua], l2)
-    )
-)
-
-fun_bssn_rhs.add_eqn(
-    shift_B_rhs[ua],
-    ConfConnect_rhs_tmp[ua]
-    - evo_shift[ub] * D(ConfConnect[ua], lb)
-    - eta_B * shift_B[ua]
-    # TODO: Advection
-    + evo_shift[ub] * D(shift_B[ua], lb)
-    # Dissipation
-    + dissipation_epsilon * (
-        div_diss(shift_B[ua], l0)
-        + div_diss(shift_B[ua], l1)
-        + div_diss(shift_B[ua], l2)
-    )
-)
-
-# TODO: Loop split
-
-fun_bssn_rhs.add_eqn(
+fun_bssn_rhs_3.add_eqn(
     At_rhs[la, lb],
     (w**2) * (
         Ats[la, lb]
@@ -749,7 +751,7 @@ fun_bssn_rhs.add_eqn(
     )
 )
 
-fun_bssn_rhs.bake(**gen_opts)
+fun_bssn_rhs_3.bake(**gen_opts)
 
 ###
 # Thorn creation
