@@ -9,8 +9,14 @@ cottonmouth_bssnok = ThornDef("Cottonmouth", "CottonmouthBSSNOK")
 ###
 # Code generation options
 ###
+# promote_all() all tiles
+# promote_none() no tiles
+# promote_percentile(float) the percentile of complexity to tile (higher less promotion)
+# promote_threshold(int) promotes if at or above threshold
+# promote_rank(int) oly promotes the [arg] most complex things
 gen_opts: ThornFunctionBakeOptions = {
     "cse_mode": CseMode.Global,
+    "temporary_promotion_strategy": promote_percentile(0.80),
     "do_madd": False,
     "do_recycle_temporaries": False,
     "do_split_output_eqns": True
